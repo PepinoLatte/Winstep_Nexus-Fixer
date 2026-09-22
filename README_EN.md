@@ -28,11 +28,13 @@ Supports both GUI and CLI modes, using pattern matching (AOB Scan) to locate tar
 
 ### 2. Available Release Packages
 
-| Package Name | Target OS | Target Architecture | Description |
-| :--- | :--- | :--- | :--- |
-| **`WinstepFixer-Windows-x64.zip`** | Windows 10 / Windows 11 | 64-bit (x64) | **Recommended**. Built for modern 64-bit systems with Per-Monitor V2 High-DPI support |
-| **`WinstepFixer-Windows-x86.zip`** | Windows 10 / Windows 11 | 32-bit (x86) | Runs natively on 32-bit Windows 10/11 and via WOW64 on 64-bit systems |
-| **`WinstepFixer-Legacy-Win7-Win8-x86.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32-bit (x86) | Ultimate legacy compatibility built with Python 3.8 x86 for older machines |
+### Release Matrix & Priority Guide
+
+| Priority | Package Name | Target OS | Target Architecture | Description |
+| :---: | :--- | :--- | :--- | :--- |
+| **🥇 Primary** | **`WinstepFixer-v1.0.0-x64-Win10-Win11.zip`** | Windows 10 / Windows 11 | 64-bit (x64) | **Recommended**. Mainstream choice for modern 64-bit Windows with Per-Monitor V2 High-DPI support |
+| **🥈 32-bit** | **`WinstepFixer-v1.0.0-x86-Win10-Win11.zip`** | Windows 10 / Windows 11 | 32-bit (x86) | Runs natively on 32-bit Windows 10/11 and via WOW64 on 64-bit systems |
+| **🥉 Legacy** | **`WinstepFixer-v1.0.0-x86-Win7-Win8-Legacy.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32-bit (x86) | Ultimate legacy compatibility built with Python 3.8 x86 for older machines |
 
 ---
 

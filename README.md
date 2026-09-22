@@ -26,13 +26,13 @@
 - **补丁针对目标 (Nexus.exe)**：Winstep Nexus 核心采用 Visual Basic 6.0 开发，本质上始终为 **32 位 (x86)** 原生 PE 程序。无论安装在 32 位还是 64 位 Windows 系统上，其二进制结构与内存寻址均为 32 位。因此，本工具的二进制补丁是纯正的 x86 原生指令级别修补，**在 32 位和 64 位 Windows 下 100% 通用适配**。
 - **修复工具客户端 (Fixer GUI/CLI)**：本工具提供多系统针对性构建的独立 EXE 发行包，用户可根据当前电脑的 Windows 版本按需下载。
 
-### 2. 发行版对照表
+### 2. 发行版对照与优先级指引
 
-| 发行包名称 | 目标操作系统 | 目标架构 | 适用场景 |
-| :--- | :--- | :--- | :--- |
-| **`WinstepFixer-Windows-x64.zip`** | Windows 10 / Windows 11 | 64 位 (x64) | **推荐**。主流 64 位电脑首选，支持 Per-Monitor V2 High-DPI 自适应缩放 |
-| **`WinstepFixer-Windows-x86.zip`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统以 32 位兼容模式运行 |
-| **`WinstepFixer-Legacy-Win7-Win8-x86.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的运行时构建 |
+| 优先级 | 发行包文件名 | 目标系统 | 架构 | 适用场景 |
+| :---: | :--- | :--- | :--- | :--- |
+| **🥇 主流首选** | **`WinstepFixer-v1.0.0-x64-Win10-Win11.zip`** | Windows 10 / Windows 11 | 64 位 (x64) | **推荐**。主流 64 位电脑首选，支持 Per-Monitor V2 High-DPI 自适应缩放 |
+| **🥈 次选兼容** | **`WinstepFixer-v1.0.0-x86-Win10-Win11.zip`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统以 32 位原生模式运行 |
+| **🥉 老机专用** | **`WinstepFixer-v1.0.0-x86-Win7-Win8-Legacy.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |
 
 ---
 
