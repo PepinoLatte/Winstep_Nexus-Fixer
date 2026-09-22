@@ -30,9 +30,9 @@
 
 | 优先级 | 发行包文件名 | 目标系统 | 架构 | 适用场景 |
 | :---: | :--- | :--- | :--- | :--- |
-| **🥇 主流首选** | **`WinstepFixer-v1.0.0-x64-Win10-Win11.zip`** | Windows 10 / Windows 11 | 64 位 (x64) | **推荐**。主流 64 位电脑首选，支持 Per-Monitor V2 High-DPI 自适应缩放 |
-| **🥈 次选兼容** | **`WinstepFixer-v1.0.0-x86-Win10-Win11.zip`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统以 32 位原生模式运行 |
-| **🥉 老机专用** | **`WinstepFixer-v1.0.0-x86-Win7-Win8-Legacy.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |
+| **主流首选** | **`WinstepFixer-v1.0.0-x64-Win10-Win11.zip`** | Windows 10 / Windows 11 | 64 位 (x64) | **推荐**。主流 64 位电脑首选，支持 Per-Monitor V2 High-DPI 自适应缩放 |
+| **次选兼容** | **`WinstepFixer-v1.0.0-x86-Win10-Win11.zip`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统以 32 位原生模式运行 |
+| **老机专用** | **`WinstepFixer-v1.0.0-x86-Win7-Win8-Legacy.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |
 
 ---
 

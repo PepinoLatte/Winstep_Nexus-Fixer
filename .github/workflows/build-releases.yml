@@ -106,19 +106,19 @@ jobs:
           echo "" >> release_notes.md
           echo "---" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 📦 资源文件下载与优先级指引" >> release_notes.md
+          echo "### 资源文件下载与推荐指引" >> release_notes.md
           echo "" >> release_notes.md
           echo "根据您的操作系统与硬件架构，直接下载对应 ZIP 文件（解压后双击运行即可）：" >> release_notes.md
           echo "" >> release_notes.md
-          echo "| 优先级 | 文件名称 | 适用操作系统 | 架构 | 说明 |" >> release_notes.md
+          echo "| 推荐顺序 | 文件名称 | 适用操作系统 | 架构 | 说明 |" >> release_notes.md
           echo "| :---: | :--- | :--- | :--- | :--- |" >> release_notes.md
-          echo "| **🥇 主流推荐** | **\`WinstepFixer-${{ github.ref_name }}-x64-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 64 位 (x64) | **95% 现代电脑首选**。支持 Per-Monitor V2 矢量 DPI 高清自适应 |" >> release_notes.md
-          echo "| **🥈 次选兼容** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统上以 32 位原生模式运行 |" >> release_notes.md
-          echo "| **🥉 老机专用** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win7-Win8-Legacy.zip\`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |" >> release_notes.md
+          echo "| **主流推荐** | **\`WinstepFixer-${{ github.ref_name }}-x64-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 64 位 (x64) | **95% 现代电脑首选**。支持 Per-Monitor V2 矢量 DPI 高清自适应 |" >> release_notes.md
+          echo "| **次选兼容** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统上以 32 位原生模式运行 |" >> release_notes.md
+          echo "| **老机专用** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win7-Win8-Legacy.zip\`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |" >> release_notes.md
           echo "" >> release_notes.md
           echo "---" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 🔒 SHA256 Checksums" >> release_notes.md
+          echo "### SHA256 Checksums" >> release_notes.md
           echo '```text' >> release_notes.md
           cd release_assets && sha256sum *.zip >> ../release_notes.md && cd ..
           echo '```' >> release_notes.md
