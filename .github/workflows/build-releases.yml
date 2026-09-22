@@ -23,20 +23,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: WinstepFixer-Windows-x64
+          - name: WinstepFixer-x64-Win10-Win11
+            target-suffix: x64-Win10-Win11
             os: windows-latest
             python-version: '3.12'
             architecture: 'x64'
             description: 'Windows 10 / 11 64-bit 现代系统推荐版'
 
-          - name: WinstepFixer-Windows-x86
+          - name: WinstepFixer-x86-Win10-Win11
+            target-suffix: x86-Win10-Win11
             os: windows-latest
             python-version: '3.12'
             architecture: 'x86'
             description: 'Windows 10 / 11 32-bit 及跨架构通用兼容版'
 
-          - name: WinstepFixer-Legacy-Win7-Win8-x86
-            os: windows-2019
+          - name: WinstepFixer-x86-Win7-Win8-Legacy
+            target-suffix: x86-Win7-Win8-Legacy
+            os: windows-latest
             python-version: '3.8'
             architecture: 'x86'
             description: 'Windows 7 / 8 / 8.1 / 10 / 11 全系老旧电脑终极兼容版'
@@ -68,13 +71,16 @@ jobs:
             Write-Error "Build artifact $distExe not found!"
             exit 1
           }
-          Compress-Archive -Path $distExe, "README.md", "LICENSE" -DestinationPath "${{ matrix.name }}.zip" -Force
+          $tag = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v1.0.0" }
+          $zipName = "WinstepFixer-$tag-${{ matrix.target-suffix }}.zip"
+          Compress-Archive -Path $distExe, "README.md", "LICENSE" -DestinationPath $zipName -Force
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_ENV
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.name }}
-          path: ${{ matrix.name }}.zip
+          name: ${{ env.ZIP_NAME }}
+          path: ${{ env.ZIP_NAME }}
 
   release:
     name: Publish GitHub Release
@@ -94,15 +100,25 @@ jobs:
       - name: Generate Release Notes & Checksums
         id: prepare_release
         run: |
-          echo "### 📦 Release Assets / 发行版说明" > release_notes.md
+          echo "## Winstep Nexus 中文与乱码深度修复工具 ${{ github.ref_name }}" > release_notes.md
           echo "" >> release_notes.md
-          echo "| 文件名称 | 适用操作系统环境 | 架构 | 说明 |" >> release_notes.md
-          echo "|---|---|---|---|" >> release_notes.md
-          echo "| **WinstepFixer-Windows-x64.zip** | Windows 10 / 11 | 64 位 (x64) | 现代 64 位电脑推荐版，支持 Per-Monitor V2 DPI 高清自适应 |" >> release_notes.md
-          echo "| **WinstepFixer-Windows-x86.zip** | Windows 10 / 11 | 32 位 (x86) | 32 位系统原生运行，亦可在 64 位系统运行 |" >> release_notes.md
-          echo "| **WinstepFixer-Legacy-Win7-Win8-x86.zip** | Windows 7 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 基于 Python 3.8 x86 构建，完美兼容 Windows 7 SP1 及老旧电脑 |" >> release_notes.md
+          echo "专为解决 Winstep Nexus 与 Winstep Xtreme 在中文 Windows 系统下的托盘乱码、多国语言包冲突、首选项标签缺失及高分辨率缩放问题而构建的通用自动化补丁工具。" >> release_notes.md
           echo "" >> release_notes.md
-          echo "### 🔒 SHA256 Checksums" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### 资源文件下载与推荐指引" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "根据您的操作系统与硬件架构，直接下载对应 ZIP 文件（解压后双击运行即可）：" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "| 推荐顺序 | 文件名称 | 适用操作系统 | 架构 | 说明 |" >> release_notes.md
+          echo "| :---: | :--- | :--- | :--- | :--- |" >> release_notes.md
+          echo "| **主流推荐** | **\`WinstepFixer-${{ github.ref_name }}-x64-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 64 位 (x64) | **95% 现代电脑首选**。支持 Per-Monitor V2 矢量 DPI 高清自适应 |" >> release_notes.md
+          echo "| **次选兼容** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win10-Win11.zip\`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统上以 32 位原生模式运行 |" >> release_notes.md
+          echo "| **老机专用** | **\`WinstepFixer-${{ github.ref_name }}-x86-Win7-Win8-Legacy.zip\`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的 Python 3.8 x86 运行时构建 |" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "---" >> release_notes.md
+          echo "" >> release_notes.md
+          echo "### SHA256 Checksums" >> release_notes.md
           echo '```text' >> release_notes.md
           cd release_assets && sha256sum *.zip >> ../release_notes.md && cd ..
           echo '```' >> release_notes.md
@@ -110,6 +126,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
           body_path: release_notes.md
           files: release_assets/*.zip
           draft: false

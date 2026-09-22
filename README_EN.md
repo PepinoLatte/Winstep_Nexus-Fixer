@@ -1,74 +1,56 @@
-# Winstep Chinese Localization Fixer
+# Winstep Nexus Localization Fixer
 
-A universal patching utility to fix systray tooltip mojibake, missing preferences tabs, UI button clipping, multi-language dropdown character corruption, and Chinese font fallback glitches in Winstep Nexus / Winstep Xtreme on Windows.
+[English](README_EN.md) | [简体中文](README.md)
 
-Supports both GUI and CLI modes, using pattern matching (AOB Scan) to locate target routines across different versions of Winstep executables.
+An automated patching tool designed to resolve system tray tooltip character corruption (mojibake), multi-language list encoding conflicts, missing preferences tabs, UI button clipping, and font display defects in Winstep Nexus and Winstep Xtreme under non-English (especially East Asian) Windows environments.
+
+Provides both Graphical User Interface (GUI) and Command-Line Interface (CLI) modes, utilizing Array of Bytes (AOB) pattern scanning to locate target routines across different versions of Winstep executables.
 
 ---
 
 ## Issues Addressed
 
-| Component | Default Behavior (on Chinese Windows) | Patched Behavior |
+| Component | Default Behavior (Chinese Windows) | Patched Behavior |
 | :--- | :--- | :--- |
-| **Systray Tooltips (Clash / Proxies)** | Shifted/corrupted characters (e.g. `订瑭 詡仱BY`) | Clean UTF-16 text (e.g. `订阅: GO国外`) |
-| **Systray Tooltips (Volume)** | Corrupted trailing character (e.g. `扬声器: 静脑`) | Clean text (e.g. `扬声器: 静音`) |
-| **Systray Tooltips (Battery / Power)**| Corrupted status text (e.g. `97% 可用(已接瓶遵1L`) | Clean text (e.g. `96% 可用(已接通电源)`) |
-| **Multi-Language Dropdown List** | Non-ASCII native endonyms corrupted into garbage (e.g. `龙脖囵梠?`, `薈磧ina`, `Fran鏃is`, `擔柿皈`) | Sanitized headers preventing ANSI collisions; clearly labels `Chinese Simplified (简体中文)` and Traditional Chinese |
-| **Preferences Dialog** | Broken Dark Mode collapses 8 tabs into 4; clipped buttons | Restores all 8 preference tabs and button text |
-| **Dock Label Fonts** | System fallback font shows boxes or missing glyphs | Configures smooth Microsoft YaHei UI font |
-| **Official Language Files** | Missing strings or encoding conflicts | Deploys standardized GB18030 language packs |
+| **Systray Tooltips** | Shifted, missing, or corrupted text (e.g. proxies, volume, battery status) | Full, native UTF-16 LE text display |
+| **Language Selection** | Non-ASCII native language endonyms corrupted due to code page collisions | Sanitized language headers; clearly marked Chinese options |
+| **Preferences Panel** | Dark Mode bug collapses 8 tabs into 4; bottom buttons clipped | All 8 preference tabs restored; layout properly aligned |
+| **Dock Item Fonts** | Default system font exhibits missing glyphs or blurred rendering | Automatically configured to Microsoft YaHei UI |
+| **Official Language Files** | Incomplete strings or timestamp parsing issues | Standardized GB18030 language packs deployed |
 
 ---
 
-## Operating Systems & Architecture Support (x86 / x64)
+## Downloads & Version Selection
 
-### 1. Architecture Compatibility
-- **Target Application (Nexus.exe)**: Winstep Nexus was developed in Visual Basic 6.0 and is inherently a **32-bit (x86)** PE binary. Even on 64-bit Windows, it executes via the WOW64 subsystem. The binary patch operates directly on x86 machine instructions, making it **100% compatible across both 32-bit and 64-bit Windows**.
-- **Fixer Client (GUI / CLI)**: Pre-built binaries are provided for various Windows architectures and release tiers.
+The target binary (`Nexus.exe`) is inherently a 32-bit (x86) PE executable, running natively on 32-bit Windows and via WOW64 on 64-bit Windows. The patch operates on x86 machine instructions and is compatible with both 32-bit and 64-bit platforms.
 
-### 2. Available Release Packages
+Choose the standalone package matching your environment:
 
-| Package Name | Target OS | Target Architecture | Description |
-| :--- | :--- | :--- | :--- |
-| **`WinstepFixer-Windows-x64.zip`** | Windows 10 / Windows 11 | 64-bit (x64) | **Recommended**. Built for modern 64-bit systems with Per-Monitor V2 High-DPI support |
-| **`WinstepFixer-Windows-x86.zip`** | Windows 10 / Windows 11 | 32-bit (x86) | Runs natively on 32-bit Windows 10/11 and via WOW64 on 64-bit systems |
-| **`WinstepFixer-Legacy-Win7-Win8-x86.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32-bit (x86) | Ultimate legacy compatibility built with Python 3.8 x86 for older machines |
+| Priority | Filename | Target OS | Architecture | Description |
+| :---: | :--- | :--- | :--- | :--- |
+| Mainstream | `WinstepFixer-v1.0.0-x64-Win10-Win11.zip` | Windows 10 / 11 | 64-bit (x64) | Primary choice for modern 64-bit systems; supports Per-Monitor V2 High-DPI scaling |
+| Secondary | `WinstepFixer-v1.0.0-x86-Win10-Win11.zip` | Windows 10 / 11 | 32-bit (x86) | For 32-bit Windows 10/11 or running in 32-bit mode on 64-bit systems |
+| Legacy | `WinstepFixer-v1.0.0-x86-Win7-Win8-Legacy.zip` | Windows 7 / 8 / 8.1 / 10 / 11 | 32-bit (x86) | Built with Python 3.8 x86 for legacy environments including Windows 7 SP1 |
 
----
-
-## Technical Background
-
-Winstep Nexus is built with Visual Basic 6.0. Reverse engineering revealed that the systray tooltip mojibake stems from VB6 runtime string marshaling:
-
-1. **API String Marshaling Pitfall**  
-   The program declares the Win32 API `ReadProcessMemory` with `ByVal lpBuffer As String`. In VB6, passing a `String` by value to an API automatically inserts:
-   - Before API call: `__vbaStrToAnsi` (allocating a temporary ANSI buffer).
-   - After API call: `__vbaStrToUnicode` (calling `MultiByteToWideChar(CP_ACP, ...)`).
-
-2. **DBCS Lead Byte Swallow & Byte Stream Misalignment**  
-   Explorer's 64-bit tray toolbar provides raw UTF-16 LE text.
-   - On English Windows (Code Page 1252), byte mapping is 1:1, allowing a subsequent `StrConv(..., vbFromUnicode)` to restore bytes by coincidence.
-   - On Chinese Windows (Code Page 936 / GBK), the code page is DBCS. When UTF-16 bytes fall into the `0x81 - 0xFE` range (such as high byte `0x90` in `通`, `0x96` in `阅`, `0x97` in `音`), the decoder misinterprets them as DBCS Lead Bytes and swallows the following byte.
-   - Unmappable pairs are replaced with single byte `0x3F` ('?'), permanently misaligning the byte stream and producing mojibake.
-
-3. **Patch Implementation**  
-   This tool locates all 6 tray reading routines in the binary, bypasses the ANSI/Unicode roundtrip conversion, and passes the preallocated BSTR buffer pointer directly to `ReadProcessMemory` for native UTF-16 pass-through.
+Pre-built binaries can be downloaded from the [Releases Page](https://github.com/PepinoLatte/Winstep_Nexus-Fixer/releases).
 
 ---
 
 ## Usage
 
-### Option 1: Standalone Binary (Recommended)
+### Option 1: Standalone Executable (Recommended)
 
-1. Download the appropriate ZIP package for your OS from the GitHub Releases page.
-2. Extract and run `WinstepFixer.exe`.
-3. The utility automatically detects the path to `Nexus.exe`. You can also click "Browse..." to select it manually.
+1. Download and extract the appropriate ZIP package from Releases.
+2. Run `WinstepFixer.exe`.
+3. The tool automatically detects the path to `Nexus.exe`. If not found, click "Browse" to locate it manually.
 4. Click **"一键全量深度修复 (One-Click Deep Fix)"**.
-5. The tool will stop Nexus, back up the original binary to `Nexus.exe.bak`, apply binary patches, update registry entries, deploy language packs, and restart Nexus.
+5. The tool stops the running process, backs up the original executable to `Nexus.exe.bak`, applies the binary patch, updates registry settings, deploys language files, and restarts Nexus.
+
+To restore the original binary, click "还原官方原版备份 (Restore Original Backup)" or use the `--restore` command-line option.
 
 ### Option 2: Run from Source
 
-Requires Python 3.8+ (standard library only, no third-party packages required):
+Requirements: Python 3.8+ (Standard library only; no external dependencies required).
 
 ```bash
 git clone https://github.com/PepinoLatte/Winstep_Nexus-Fixer.git
@@ -77,7 +59,7 @@ cd winstep-nexus-fixer
 # Launch GUI
 python main.py
 
-# Or run full fix via CLI
+# CLI full fix
 python main.py --fix-all
 ```
 
@@ -85,18 +67,33 @@ python main.py --fix-all
 
 ## CLI Options
 
+Suitable for automation scripts and unattended deployments:
+
 ```text
 Usage: main.py [-h] [--fix-all] [--patch-only] [--check] [--restore] [--path PATH] [--gui]
 
 Options:
   -h, --help    Show help message
-  --fix-all     Run full fix (binary patch, registry, font, language packs)
+  --fix-all     Execute full fix (binary patch, registry, font, and language files)
   --patch-only  Apply binary patch to Nexus.exe only
-  --check       Check status of Nexus process, patch, and settings
-  --restore     Restore original Nexus.exe from .bak backup
-  --path PATH   Specify path to Nexus.exe manually
-  --gui         Launch interactive GUI
+  --check       Inspect Nexus process state, patch status, and configuration
+  --restore     Restore original Nexus.exe from backup file
+  --path PATH   Manually specify path to Nexus.exe
+  --gui         Launch graphical interface
 ```
+
+---
+
+## Technical Background
+
+Winstep Nexus is built with Visual Basic 6.0. Reverse engineering indicates that tray tooltip character corruption is caused by VB6 runtime string marshaling during Win32 API calls:
+
+1. **API String Marshaling Pitfall**  
+   The program declares `ReadProcessMemory` with `ByVal lpBuffer As String`. In VB6, passing a `String` by value to an external DLL implicitly executes `__vbaStrToAnsi` prior to the call (allocating a temporary ANSI buffer) and `__vbaStrToUnicode` (`MultiByteToWideChar(CP_ACP, ...)`) upon return.
+2. **DBCS Lead Byte Swallowing**  
+   The Windows Explorer tray toolbar (`ToolbarWindow32`) provides UTF-16 LE text. Under DBCS code pages (such as CP936 / GBK), when a UTF-16 byte falls within `0x81 - 0xFE`, the decoder misinterprets it as a DBCS Lead Byte and consumes the subsequent byte. Unmappable sequences are replaced with `0x3F` (`?`), disrupting byte alignment and resulting in unrecoverable corruption.
+3. **Patch Implementation**  
+   This utility uses pattern scanning (AOB Scan) to identify all tray reading routines in the binary, bypasses the ANSI/Unicode round-trip conversions, and passes the allocated BSTR pointer directly to `ReadProcessMemory` for native UTF-16 reading.
 
 ---
 
@@ -104,26 +101,26 @@ Options:
 
 ```text
 winstep-nexus-fixer/
-├── .github/
-│   └── workflows/
-│       └── build-releases.yml  # GitHub Actions automated multi-architecture CI/CD
+├── .github/workflows/
+│   └── build-releases.yml  # GitHub Actions multi-architecture build workflow
 ├── core/
-│   ├── patcher.py           # PE parsing, AOB scanning, and binary patching
-│   ├── process_manager.py   # Nexus process lifecycle management
-│   ├── registry_manager.py  # Preferences UIDarkMode and font registry manager
-│   └── lang_manager.py      # Chinese pack deployment and language header sanitization
+│   ├── patcher.py           # PE analysis, AOB scanning, and binary patching
+│   ├── process_manager.py   # Process detection and lifecycle management
+│   ├── registry_manager.py  # Dark mode and font registry settings
+│   └── lang_manager.py      # Language pack deployment and encoding fixes
 ├── gui/
 │   └── app.py               # Tkinter High-DPI adaptive user interface
-├── Languages/               # Optimized Chinese language packs
-├── assets/screenshots/      # Visual comparison screenshots
-├── main.py                  # CLI/GUI unified entry point
-├── build.bat                # Standalone PyInstaller build script
+├── Languages/               # Standardized Chinese language packs
+├── assets/screenshots/      # Defect and comparison screenshots
+├── main.py                  # CLI / GUI entry point
+├── build.bat                # Local packaging script
 ├── LICENSE                  # MIT License
-└── README.md
+├── README.md                # Chinese documentation
+└── README_EN.md             # English documentation
 ```
 
 ---
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is licensed under the [MIT License](LICENSE). For educational, accessibility, and localization compatibility purposes only. All copyrights belong to their respective owners.
