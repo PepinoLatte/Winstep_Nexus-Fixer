@@ -1,12 +1,10 @@
 # Winstep Nexus 中文与乱码修复补丁 (Winstep Chinese Localization Fixer)
 
-用于修复 Winstep Nexus / Winstep Xtreme 在中文 Windows 系统下的系统托盘气泡乱码、首选项设置标签页缺失、UI 按钮文本截断以及中文字体显示缺陷的补丁工具。
+用于修复 Winstep Nexus / Winstep Xtreme 在中文 Windows 系统下的系统托盘气泡乱码、多国语言列表乱码、首选项设置标签页缺失、UI 按钮文本截断以及中文字体显示缺陷的补丁工具。
 
 提供图形界面（GUI）与命令行（CLI）两种运行方式，采用特征码匹配（AOB Scan）定位目标例程，可适配不同版本的 Winstep 可执行文件。
 
-
-
-
+---
 
 ## 修复内容说明
 
@@ -15,13 +13,28 @@
 | **系统托盘气泡 (Clash / 代理)** | 悬浮提示中汉字错位（如 `订瑭 詡仱BY`） | 完整显示 UTF-16 文本（如 `订阅: GO国外`） |
 | **系统托盘气泡 (音量 / 扬声器)** | 提示尾字乱码（如 `扬声器: 静脑` / `静...`） | 正常显示（如 `扬声器: 静音` 或音量百分比） |
 | **系统托盘气泡 (电源 / 电池)** | 状态乱码（如 `97% 可用(已接瓶遵1L`） | 正常显示（如 `XX% 可用(已接通电源)`） |
+| **首选项多国语言下拉列表** | 非 ASCII 语种自称乱码（如 `龙脖囵梠?`、`薈磧ina`、`Fran鏃is`、`擔柿皈`、`畜褥战?`） | 规范化命名，杜绝 ANSI 字节碰撞，并明确标识 `Chinese Simplified (简体中文)` 与繁体中文 |
 | **首选项设置面板 (Preferences)** | 深色模式下 8 个标签页缺失折叠为 4 个，底部按钮截断 | 恢复完整的 8 个设置页，按钮文字正常对齐 |
 | **Dock 栏图标标签字体** | 系统默认字体部分汉字缺字、重影或显示为方框 | 自动配置为清晰的微软雅黑（Microsoft YaHei UI） |
 | **官方中文语言文件** | 旧版翻译遗漏、时间戳导致的部分词条无法加载 | 部署完整覆盖的规范化 GB18030 语言文件 |
 
+---
 
+## 系统环境与发行版支持 (x86 / x64)
 
+### 1. 架构适配说明
+- **补丁针对目标 (Nexus.exe)**：Winstep Nexus 核心采用 Visual Basic 6.0 开发，本质上始终为 **32 位 (x86)** 原生 PE 程序。无论安装在 32 位还是 64 位 Windows 系统上，其二进制结构与内存寻址均为 32 位。因此，本工具的二进制补丁是纯正的 x86 原生指令级别修补，**在 32 位和 64 位 Windows 下 100% 通用适配**。
+- **修复工具客户端 (Fixer GUI/CLI)**：本工具提供多系统针对性构建的独立 EXE 发行包，用户可根据当前电脑的 Windows 版本按需下载。
 
+### 2. 发行版对照表
+
+| 发行包名称 | 目标操作系统 | 目标架构 | 适用场景 |
+| :--- | :--- | :--- | :--- |
+| **`WinstepFixer-Windows-x64.zip`** | Windows 10 / Windows 11 | 64 位 (x64) | **推荐**。主流 64 位电脑首选，支持 Per-Monitor V2 High-DPI 自适应缩放 |
+| **`WinstepFixer-Windows-x86.zip`** | Windows 10 / Windows 11 | 32 位 (x86) | 适用于 32 位 Windows 10/11，或在 64 位系统以 32 位兼容模式运行 |
+| **`WinstepFixer-Legacy-Win7-Win8-x86.zip`** | Windows 7 SP1 / 8 / 8.1 / 10 / 11 | 32 位 (x86) | 针对老旧系统的终极兼容版，基于支持 Win7 的运行时构建 |
+
+---
 
 ## 乱码技术原理分析
 
@@ -41,25 +54,23 @@ Winstep Nexus 核心基于 Visual Basic 6.0 开发。经过逆向分析，托盘
 3. **修复方案**  
    本工具通过分析 PE 结构与特征码扫描定位可执行文件中的 6 处托盘读取例程，将原有的 ANSI/Unicode 往返转换旁路切断，直接将预分配的 BSTR 缓冲区指针（`StrPtr`）传递给 `ReadProcessMemory` 进行 UTF-16 原生直读，从而保持 Unicode 字节流完整无损。
 
-
-
-
+---
 
 ## 使用方法
 
 ### 方式 1：直接运行独立执行程序（推荐）
 
-1. 在 GitHub Releases 页面下载 `WinstepFixer.exe`。
-2. 双击运行 `WinstepFixer.exe`。
-3. 程序会自动检测当前运行中或默认路径下的 `Nexus.exe`。如未找到，可点击“浏览”手动指定路径。
+1. 在 GitHub Releases 页面下载适合您系统的发行版 ZIP 包并解压。
+2. 双击运行 `WinstepFixer.exe`（或对应名称的可执行文件）。
+3. 程序会自动检测当前运行中或默认安装路径下的 `Nexus.exe`。如未找到，可点击“浏览”手动指定路径。
 4. 点击界面上的 **【一键全量深度修复】** 按钮。
-5. 工具会自动完成进程关闭、备份原文件、写入二进制补丁、配置注册表及重启生效。
+5. 工具会自动完成进程关闭、备份原文件、写入二进制补丁、配置注册表、部署优化语言包及平滑重启生效。
 
 > **备份机制**：修补时会自动在 `Nexus.exe` 同目录下生成原始文件的备份（`Nexus.exe.bak`）。若需还原，可点击界面中的“还原官方原版备份”。
 
 ### 方式 2：从源码运行
 
-要求安装 Python 3.10 或更高版本（仅使用标准库，无需安装额外依赖包）：
+要求安装 Python 3.8 或更高版本（仅使用标准库，无需安装额外依赖包）：
 
 ```bash
 git clone https://github.com/PepinoLatte/Winstep_Nexus-Fixer.git
@@ -72,7 +83,7 @@ python main.py
 python main.py --fix-all
 ```
 
-
+---
 
 ## 命令行参数 (CLI)
 
@@ -91,47 +102,31 @@ python main.py --fix-all
   --gui         强制以图形界面启动
 ```
 
-
-
-
-
-## 自行编译单文件 EXE
-
-如需自行打包发布独立可执行程序，可使用随附的 `build.bat`：
-
-```cmd
-pip install pyinstaller
-build.bat
-```
-
-构建完成后可在 `dist/WinstepFixer.exe` 获得独立执行文件。
-
-
-
-
+---
 
 ## 项目结构
 
 ```text
 winstep-nexus-fixer/
+├── .github/
+│   └── workflows/
+│       └── build-releases.yml  # GitHub Actions 自动化多架构构建与发布流
 ├── core/
-│   ├── patcher.py           # PE 分析与 AOB 特征码扫描、补丁生成
+│   ├── patcher.py           # PE 分析与 AOB 特征码扫描、二进制修补
 │   ├── process_manager.py   # Nexus 进程检测、安全退出与交互桌面重启
 │   ├── registry_manager.py  # 首选项 UIDarkMode 与 Dock 字体注册表管理
-│   └── lang_manager.py      # 中文语言包安装与同步
+│   └── lang_manager.py      # 中文语言包部署与多国语言列表防乱码规范化
 ├── gui/
-│   └── app.py               # Tkinter 图形化界面实现
+│   └── app.py               # Tkinter High-DPI 自适应图形化界面
 ├── Languages/               # 规范化中文语言包（NeXuS / Update Manager / Xtreme）
-├── assets/screenshots/      # 修复前缺陷截图
-├── main.py                  # 双模式入口
-├── build.bat                # 打包脚本
+├── assets/screenshots/      # 修复前后缺陷与效果截图
+├── main.py                  # 双模式统一入口
+├── build.bat                # 本地单文件打包脚本
 ├── LICENSE                  # MIT 许可证
 └── README.md
 ```
 
-
-
-
+---
 
 ## 许可证
 
