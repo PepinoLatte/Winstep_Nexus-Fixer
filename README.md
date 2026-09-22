@@ -56,7 +56,7 @@ Winstep Nexus 核心基于 Visual Basic 6.0 开发。经过逆向分析，托盘
 要求安装 Python 3.10 或更高版本（仅使用标准库，无需安装额外依赖包）：
 
 ```bash
-git clone https://github.com/your-username/winstep-nexus-fixer.git
+git clone https://github.com/PepinoLatte/Winstep_Nexus-Fixer.git
 cd winstep-nexus-fixer
 
 # 启动图形界面

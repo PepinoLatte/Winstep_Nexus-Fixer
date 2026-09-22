@@ -54,7 +54,7 @@ Winstep Nexus is built with Visual Basic 6.0. Reverse engineering revealed that 
 Requires Python 3.10+ (standard library only, no third-party packages required):
 
 ```bash
-git clone https://github.com/your-username/winstep-nexus-fixer.git
+git clone https://github.com/PepinoLatte/Winstep_Nexus-Fixer.git
 cd winstep-nexus-fixer
 
 # Launch GUI
