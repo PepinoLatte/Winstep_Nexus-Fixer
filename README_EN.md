@@ -1,61 +1,120 @@
-# Winstep Nexus Universal Chinese Localization & Mojibake Fixer
+# Winstep Chinese Localization Fixer
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Platform-Windows%2010%20%7C%20Windows%2011-blue?style=flat-square&logo=windows" alt="Platform" />
-  <img src="https://img.shields.io/badge/Target-Winstep%20Nexus%20%2F%20Xtreme-orange?style=flat-square" alt="Target" />
-  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License" />
-  <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python" alt="Python" />
-</p>
+A universal patching utility to fix systray tooltip mojibake, missing preferences tabs, UI button clipping, and Chinese font fallback glitches in Winstep Nexus / Winstep Xtreme on Windows.
 
-An all-in-one universal GUI/CLI patcher that permanently fixes **systray tooltip mojibake (garbled text on Clash, Volume, Battery, Snipaste, etc.)**, **Preferences tab truncation (UIDarkMode glitch)**, and **missing Chinese font glyphs** in **Winstep Nexus / Winstep Xtreme** on Windows.
+Supports both GUI and CLI modes, using pattern matching (AOB Scan) to locate target routines across different versions of Winstep executables.
 
 ---
 
-## 🔬 Root Cause Analysis
+## Issues Addressed
 
-Even when system regional settings are configured correctly, tooltips in Winstep Nexus displayed severe mojibake on Chinese Windows systems:
-
-1. **VB6 String Marshaling Pitfall:**
-   Winstep Nexus is built with Visual Basic 6.0. The developer declared the Win32 API `ReadProcessMemory` using `ByVal lpBuffer As String`. In VB6 runtime, passing a `String` by value forces automatic ANSI conversion:
-   - Before API call: `__vbaStrToAnsi` (allocates an ANSI buffer).
-   - After API call: `__vbaStrToUnicode` (converts ANSI back to Unicode via `MultiByteToWideChar(CP_ACP, ...)`).
-
-2. **DBCS Byte Swallow & Misalignment:**
-   Explorer's 64-bit tray toolbar provides raw **UTF-16 Unicode bytes**.
-   - On English Windows (Code Page 1252), every byte maps 1:1, so a subsequent `StrConv(..., vbFromUnicode)` restores the original bytes by coincidence.
-   - On Chinese Windows (Code Page 936 / GBK), the code page is a Double Byte Character Set (DBCS).
-   - When UTF-16 bytes contain values in the range `0x81 - 0xFE` (such as `0x90` in "通", `0x96` in "阅", `0x97` in "音"), the GBK decoder misinterprets them as a DBCS Lead Byte, consuming the next byte. Because the resulting pair is invalid (e.g., paired with `0x00`), the character is dropped and replaced with `0x3F` ('?'), permanently destroying the byte alignment and text.
-
-3. **Our Solution:**
-   This tool uses an AOB signature scanner to locate all 6 systray tooltip reading routines across different Winstep builds, bypassing `__vbaStrToAnsi` / `__vbaStrToUnicode` and injecting direct **UTF-16 Unicode pass-through pointers** straight into `ReadProcessMemory`.
+| Component | Default Behavior (on Chinese Windows) | Patched Behavior |
+| :--- | :--- | :--- |
+| **Systray Tooltips (Clash / Proxies)** | Shifted/corrupted characters (e.g. `订瑭 詡仱BY`) | Clean UTF-16 text (e.g. `订阅: GO国外`) |
+| **Systray Tooltips (Volume)** | Corrupted trailing character (e.g. `扬声器: 静脑`) | Clean text (e.g. `扬声器: 静音`) |
+| **Systray Tooltips (Battery / Power)**| Corrupted status text (e.g. `97% 可用(已接瓶遵1L`) | Clean text (e.g. `96% 可用(已接通电源)`) |
+| **Preferences Dialog** | Broken Dark Mode collapses 8 tabs into 4; clipped buttons | Restores all 8 preference tabs and button text |
+| **Dock Label Fonts** | System fallback font shows boxes or missing glyphs | Configures smooth Microsoft YaHei UI font |
+| **Official Language Files** | Missing strings or encoding conflicts | Deploys standardized GB18030 language packs |
 
 ---
 
-## 🚀 Quick Start
+## Technical Background
+
+Winstep Nexus is built with Visual Basic 6.0. Reverse engineering revealed that the systray tooltip mojibake stems from VB6 runtime string marshaling:
+
+1. **API String Marshaling Pitfall**  
+   The program declares the Win32 API `ReadProcessMemory` with `ByVal lpBuffer As String`. In VB6, passing a `String` by value to an API automatically inserts:
+   - Before API call: `__vbaStrToAnsi` (allocating a temporary ANSI buffer).
+   - After API call: `__vbaStrToUnicode` (calling `MultiByteToWideChar(CP_ACP, ...)`).
+
+2. **DBCS Lead Byte Swallow & Byte Stream Misalignment**  
+   Explorer's 64-bit tray toolbar provides raw UTF-16 LE text.
+   - On English Windows (Code Page 1252), byte mapping is 1:1, allowing a subsequent `StrConv(..., vbFromUnicode)` to restore bytes by coincidence.
+   - On Chinese Windows (Code Page 936 / GBK), the code page is DBCS. When UTF-16 bytes fall into the `0x81 - 0xFE` range (such as high byte `0x90` in `通`, `0x96` in `阅`, `0x97` in `音`), the decoder misinterprets them as DBCS Lead Bytes and swallows the following byte.
+   - Unmappable pairs are replaced with single byte `0x3F` ('?'), permanently misaligning the byte stream and producing mojibake.
+
+3. **Patch Implementation**  
+   This tool locates all 6 tray reading routines in the binary, bypasses the ANSI/Unicode roundtrip conversion, and passes the preallocated BSTR buffer pointer directly to `ReadProcessMemory` for native UTF-16 pass-through.
+
+---
+
+## Usage
 
 ### Option 1: Standalone Binary (Recommended)
-Download the standalone `WinstepFixer.exe` from [Releases](../../releases) and click **"一键全量深度修复 (One-Click Deep Fix)"**.
+
+1. Download `WinstepFixer.exe` from the Releases page.
+2. Run `WinstepFixer.exe`.
+3. The utility automatically detects the path to `Nexus.exe`. You can also click "Browse..." to select it manually.
+4. Click **"一键全量深度修复 (One-Click Deep Fix)"**.
+5. The tool will stop Nexus, back up the original binary to `Nexus.exe.bak`, apply binary patches, update registry entries, and restart Nexus.
 
 ### Option 2: Run from Source
+
+Requires Python 3.10+ (standard library only, no third-party packages required):
+
 ```bash
 git clone https://github.com/your-username/winstep-nexus-fixer.git
 cd winstep-nexus-fixer
+
+# Launch GUI
 python main.py
-```
 
-### Option 3: Command Line
-```bash
-# Check status
-python main.py --check
-
-# Apply all fixes silently
+# Or apply all fixes via CLI
 python main.py --fix-all
-
-# Restore pristine original binary
-python main.py --restore
 ```
 
 ---
 
-## 📄 License
+## Command Line Interface (CLI)
+
+```text
+usage: main.py [-h] [--fix-all] [--patch-only] [--check] [--restore] [--path PATH] [--gui]
+
+options:
+  -h, --help    show this help message and exit
+  --fix-all     apply all fixes (binary patch, tabs, font, language packs)
+  --patch-only  apply only the binary systray tooltip patch
+  --check       check current Nexus process and patch status
+  --restore     restore original Nexus.exe from .bak backup
+  --path PATH   specify custom path to Nexus.exe
+  --gui         force launch GUI mode
+```
+
+---
+
+## Building Standalone Executable
+
+```cmd
+pip install pyinstaller
+build.bat
+```
+
+The output executable will be placed in `dist/WinstepFixer.exe`.
+
+---
+
+## Project Structure
+
+```text
+winstep-nexus-fixer/
+├── core/
+│   ├── patcher.py           # PE analyzer and binary patcher
+│   ├── process_manager.py   # Process lifecycle management
+│   ├── registry_manager.py  # Preferences and font registry settings
+│   └── lang_manager.py      # Language pack installation
+├── gui/
+│   └── app.py               # Tkinter GUI implementation
+├── Languages/               # Optimized Chinese language files
+├── assets/screenshots/      # Reference screenshots
+├── main.py                  # Entry point
+├── build.bat                # PyInstaller build script
+├── LICENSE                  # MIT License
+└── README.md
+```
+
+---
+
+## License
+
 Released under the [MIT License](LICENSE).

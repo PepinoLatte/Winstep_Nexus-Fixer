@@ -144,9 +144,10 @@ class WinstepProcessManager:
 
         # 2. Check standard installation directories
         candidates = [
-            r'D:\Software_Data\Winstep\nexus.exe',
             r'C:\Program Files (x86)\Winstep\nexus.exe',
             r'C:\Program Files\Winstep\nexus.exe',
+            os.path.expandvars(r'%ProgramFiles(x86)%\Winstep\nexus.exe'),
+            os.path.expandvars(r'%ProgramFiles%\Winstep\nexus.exe'),
         ]
         for c in candidates:
             if os.path.exists(c):
