@@ -4,9 +4,11 @@ __pycache__/
 *$py.class
 *.spec
 
-# Build outputs (dist can be kept or uploaded to GitHub Releases)
+# Build outputs
 build/
 *.bak
+*.zip
+release_notes_*.md
 
 # Environment
 .env
