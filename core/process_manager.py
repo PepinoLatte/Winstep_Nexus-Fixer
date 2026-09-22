@@ -68,10 +68,22 @@ class WinstepProcessManager:
 
     @staticmethod
     def start_nexus(exe_path: str) -> tuple[bool, str]:
-        """Launch Nexus on user interactive desktop (WinSta0\\Default)."""
+        """Launch Nexus on user interactive desktop."""
         if not os.path.exists(exe_path):
             return False, f'File not found: {exe_path}'
 
+        # 1. Prefer os.startfile (ShellExecuteW) for proper interactive session decoupling
+        try:
+            os.startfile(exe_path)
+            time.sleep(1.5)
+            pids = WinstepProcessManager.get_nexus_pids()
+            if pids:
+                return True, f'Nexus started successfully (PID {pids[0]}).'
+            return True, 'Nexus launch signal sent successfully.'
+        except Exception:
+            pass
+
+        # 2. Fallback to CreateProcessW with WinSta0\Default
         class STARTUPINFOW(ctypes.Structure):
             _fields_ = [
                 ('cb', wintypes.DWORD),
@@ -110,11 +122,21 @@ class WinstepProcessManager:
         kernel32 = ctypes.windll.kernel32
         exe_dir = os.path.dirname(os.path.abspath(exe_path))
 
+        # 2. Try CreateProcessW with breakaway from job if nested
+        flags = 0x01000010  # CREATE_NEW_CONSOLE | CREATE_BREAKAWAY_FROM_JOB
         res = kernel32.CreateProcessW(
-            None, exe_path, None, None, False,
-            0, None, exe_dir,
+            None, f'"{exe_path}"', None, None, False,
+            flags, None, exe_dir,
             ctypes.byref(si), ctypes.byref(pi)
         )
+        if not res:
+            # Fallback without breakaway flag in case job disallows it
+            flags = 0x00000010  # CREATE_NEW_CONSOLE
+            res = kernel32.CreateProcessW(
+                None, f'"{exe_path}"', None, None, False,
+                flags, None, exe_dir,
+                ctypes.byref(si), ctypes.byref(pi)
+            )
 
         if res:
             kernel32.CloseHandle(pi.hProcess)

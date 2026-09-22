@@ -50,6 +50,89 @@ class WinstepPatcher:
                 return s['raw_start'] + (va - s['va_start'])
         return va - 0x400c00  # Fallback standard offset
 
+    def _parse_unpatched_site(self, data: bytes, call_raw: int, call_va: int, wrapper_va: int, sections: list) -> dict:
+        """Parse unpatched site details dynamically: start VA, jump dest VA, hProcess, copy_iat, and routine type."""
+        pre = data[call_raw-7:call_raw]
+        h_proc = None
+        if pre[-1] == 0x51 and pre[-7:-5] == b'\x8b\x0d':
+            h_proc = int.from_bytes(pre[-5:-1], 'little')
+        elif pre[-1] == 0x52 and pre[-7:-5] == b'\x8b\x15':
+            h_proc = int.from_bytes(pre[-5:-1], 'little')
+        elif pre[-1] == 0x50 and pre[-6] == 0xa1:
+            h_proc = int.from_bytes(pre[-5:-1], 'little')
+
+        if not h_proc:
+            return None
+
+        # Dynamically locate start_raw by scanning backward from call_raw for:
+        # lea reg, [ebp - 0x54/0x50] (8d [45/4d/55] [ac/b0]) followed by push reg (50+reg)
+        start_raw = None
+        for off in range(call_raw - 35, call_raw - 60, -1):
+            if data[off] == 0x8d and data[off+1] in (0x45, 0x4d, 0x55) and data[off+2] in (0xac, 0xb0):
+                reg = (data[off+1] >> 3) & 7
+                if data[off+3] == 0x50 + reg:
+                    start_raw = off
+                    break
+
+        if start_raw is None:
+            # Fallback: scan for line number assignment c7 45 fc ?? 00 00 00
+            for off in range(call_raw - 35, call_raw - 60, -1):
+                if data[off:off+3] == b'\xc7\x45\xfc' and data[off+4:off+7] == b'\x00\x00\x00':
+                    start_raw = off + 7
+                    break
+
+        if start_raw is None:
+            return None
+
+        start_va = self.raw_to_va(start_raw, sections)
+
+        p80 = data.find(b'\x68\x80\x00\x00\x00', call_raw, call_raw + 100)
+        if p80 == -1:
+            return None
+
+        post_p80 = data[p80:p80+120]
+        if b'\x8d\x4d\x88' in post_p80:
+            rtype = 'A'
+            idx = post_p80.find(b'\x8d\x4d\x88')
+            copy_iat = int.from_bytes(post_p80[idx+5:idx+9], 'little')
+            jump_raw = p80 + idx + 9
+        elif b'\x8d\x8d\x70\xff\xff\xff' in post_p80:
+            rtype = 'B'
+            idx = post_p80.find(b'\x8d\x8d\x70\xff\xff\xff')
+            copy_iat = int.from_bytes(post_p80[idx+8:idx+12], 'little')
+            jump_raw = p80 + idx + 12
+        else:
+            return None
+
+        jump_va = self.raw_to_va(jump_raw, sections)
+        avail = jump_raw - start_raw
+
+        return {
+            'call_va': call_va,
+            'call_raw': call_raw,
+            'start_va': start_va,
+            'start_raw': start_raw,
+            'jump_va': jump_va,
+            'jump_raw': jump_raw,
+            'avail': avail,
+            'type': rtype,
+            'h_proc': h_proc,
+            'copy_iat': copy_iat,
+            'wrapper_va': wrapper_va
+        }
+
+    def _parse_patched_site(self, data: bytes, call_raw: int, call_va: int, wrapper_va: int, sections: list) -> dict:
+        """Parse already-patched site details."""
+        start_raw = call_raw - 21
+        start_va = self.raw_to_va(start_raw, sections)
+        return {
+            'call_va': call_va,
+            'call_raw': call_raw,
+            'start_va': start_va,
+            'start_raw': start_raw,
+            'wrapper_va': wrapper_va
+        }
+
     def analyze(self):
         """Analyze the target executable for tray tooltip reading routines."""
         if not os.path.exists(self.exe_path):
@@ -63,7 +146,7 @@ class WinstepPatcher:
 
         image_base, sections = self.parse_pe_sections(data)
 
-        # 1. Locate ReadProcessMemory API wrapper
+        # 1. Locate ReadProcessMemory API wrapper dynamically
         name_raw = data.find(b'ReadProcessMemory\x00')
         if name_raw == -1:
             return {'status': 'NOT_WINSTEP', 'error': 'ReadProcessMemory signature not found'}
@@ -83,36 +166,33 @@ class WinstepPatcher:
         wrapper_raw = push_raw - 11
         wrapper_va = self.raw_to_va(wrapper_raw, sections)
 
-        # 2. Locate all candidate sites calling ReadProcessMemory
+        # 2. Dynamically scan .text section for all calls to ReadProcessMemory wrapper
         unpatched_sites = []
         patched_sites = []
 
-        # Known relative sites for Winstep 26.x
-        known_sites = [
-            (1, 0x8ef279, 0x8ef30f, 'A'),
-            (2, 0x8ef60a, 0x8ef6a0, 'A'),
-            (3, 0x8ef998, 0x8efa2d, 'A'),
-            (4, 0x8effa5, 0x8f0047, 'B'),
-            (5, 0x8f0460, 0x8f0501, 'B'),
-            (6, 0x8f087a, 0x8f091c, 'B'),
-        ]
-
-        # Check the 6 known sites
-        for num, sva, jva, rtype in known_sites:
-            raw_s = self.va_to_raw(sva, sections)
-            raw_j = self.va_to_raw(jva, sections)
-            block = data[raw_s:raw_j]
-            # Check for direct UTF-16 patch signature (mov word ptr [ecx + 0x1fe], 0)
-            if b'\x66\xc7\x81\xfe\x01\x00\x00\x00\x00' in block:
-                patched_sites.append({'id': num, 'va': sva, 'jump_va': jva, 'type': rtype, 'raw': raw_s})
-            elif b'\x68\x80\x00\x00\x00' in block or b'\xff\x15' in block:
-                unpatched_sites.append({'id': num, 'va': sva, 'jump_va': jva, 'type': rtype, 'raw': raw_s})
+        for sec in sections:
+            if sec['name'] == '.text':
+                s_raw, e_raw = sec['raw_start'], sec['raw_end']
+                for offset in range(s_raw, e_raw - 5):
+                    if data[offset] == 0xe8:
+                        rel = int.from_bytes(data[offset+1:offset+5], 'little', signed=True)
+                        call_va = self.raw_to_va(offset, sections)
+                        if call_va + 5 + rel == wrapper_va:
+                            chunk = data[offset:offset+100]
+                            if b'\x68\x80\x00\x00\x00' in chunk:
+                                site_info = self._parse_unpatched_site(data, offset, call_va, wrapper_va, sections)
+                                if site_info:
+                                    unpatched_sites.append(site_info)
+                            elif b'\x66\xc7\x81\xfe\x01\x00\x00\x00\x00' in chunk:
+                                site_info = self._parse_patched_site(data, offset, call_va, wrapper_va, sections)
+                                if site_info:
+                                    patched_sites.append(site_info)
 
         if len(patched_sites) == 6:
             status = 'PATCHED'
         elif len(unpatched_sites) == 6:
             status = 'UNPATCHED'
-        elif len(patched_sites) > 0 and len(unpatched_sites) > 0:
+        elif len(patched_sites) > 0 or len(unpatched_sites) > 0:
             status = 'PARTIALLY_PATCHED'
         else:
             status = 'UNKNOWN'
@@ -125,11 +205,13 @@ class WinstepPatcher:
             'patched_count': len(patched_sites),
             'unpatched_count': len(unpatched_sites),
             'total_sites': 6,
+            'patched_sites': patched_sites,
+            'unpatched_sites': unpatched_sites,
             'has_backup': os.path.exists(self.bak_path),
             'bak_path': self.bak_path
         }
 
-    def build_routine_a(self, site_va: int, jump_dest_va: int, rpm_wrapper_va: int = 0x4cb0a4) -> bytes:
+    def build_routine_a(self, site_va: int, jump_dest_va: int, rpm_wrapper_va: int, h_proc_va: int, copy_iat_va: int) -> bytes:
         """Machine code for Routine A (tray primary toolbars)."""
         rel_call = rpm_wrapper_va - (site_va + 21 + 5)
         rel_call_bytes = rel_call.to_bytes(4, 'little', signed=True)
@@ -140,20 +222,20 @@ class WinstepPatcher:
         code += bytes.fromhex('68 00 02 00 00')              # push 0x200 (512 bytes)
         code += bytes.fromhex('ff 75 a8')                    # push dword ptr [ebp - 0x58]
         code += bytes.fromhex('ff 75 a0')                    # push dword ptr [ebp - 0x60]
-        code += bytes.fromhex('ff 35 c8 26 b2 00')           # push dword ptr [0xb226c8]
+        code += b'\xff\x35' + h_proc_va.to_bytes(4, 'little')# push dword ptr [hProcess]
         code += b'\xe8' + rel_call_bytes                     # call ReadProcessMemory
         code += bytes.fromhex('8b 4d a8')                    # mov ecx, dword ptr [ebp - 0x58]
         code += bytes.fromhex('66 c7 81 fe 01 00 00 00 00')  # mov word ptr [ecx + 0x1fe], 0
         code += bytes.fromhex('8b 55 a8')                    # mov edx, dword ptr [ebp - 0x58]
         code += bytes.fromhex('8d 4d 88')                    # lea ecx, [ebp - 0x78]
-        code += bytes.fromhex('ff 15 0c dc b5 00')           # call dword ptr [__vbaStrCopy]
+        code += b'\xff\x15' + copy_iat_va.to_bytes(4, 'little')# call dword ptr [__vbaStrCopy]
 
         curr_len = len(code) + 5
         rel_jmp = jump_dest_va - (site_va + curr_len)
         code += b'\xe9' + rel_jmp.to_bytes(4, 'little', signed=True)
         return bytes(code)
 
-    def build_routine_b(self, site_va: int, jump_dest_va: int, rpm_wrapper_va: int = 0x4cb0a4) -> bytes:
+    def build_routine_b(self, site_va: int, jump_dest_va: int, rpm_wrapper_va: int, h_proc_va: int, copy_iat_va: int) -> bytes:
         """Machine code for Routine B (tray overflow / secondary toolbars)."""
         rel_call = rpm_wrapper_va - (site_va + 21 + 5)
         rel_call_bytes = rel_call.to_bytes(4, 'little', signed=True)
@@ -164,13 +246,13 @@ class WinstepPatcher:
         code += bytes.fromhex('68 00 02 00 00')              # push 0x200 (512 bytes)
         code += bytes.fromhex('ff 75 ac')                    # push dword ptr [ebp - 0x54]
         code += bytes.fromhex('ff 75 a0')                    # push dword ptr [ebp - 0x60]
-        code += bytes.fromhex('ff 35 c8 26 b2 00')           # push dword ptr [0xb226c8]
+        code += b'\xff\x35' + h_proc_va.to_bytes(4, 'little')# push dword ptr [hProcess]
         code += b'\xe8' + rel_call_bytes                     # call ReadProcessMemory
         code += bytes.fromhex('8b 4d ac')                    # mov ecx, dword ptr [ebp - 0x54]
         code += bytes.fromhex('66 c7 81 fe 01 00 00 00 00')  # mov word ptr [ecx + 0x1fe], 0
         code += bytes.fromhex('8b 55 ac')                    # mov edx, dword ptr [ebp - 0x54]
         code += bytes.fromhex('8d 8d 70 ff ff ff')           # lea ecx, [ebp - 0x90]
-        code += bytes.fromhex('ff 15 0c dc b5 00')           # call dword ptr [__vbaStrCopy]
+        code += b'\xff\x15' + copy_iat_va.to_bytes(4, 'little')# call dword ptr [__vbaStrCopy]
 
         curr_len = len(code) + 5
         rel_jmp = jump_dest_va - (site_va + curr_len)
@@ -178,10 +260,16 @@ class WinstepPatcher:
         return bytes(code)
 
     def apply_patch(self, create_backup: bool = True) -> tuple[bool, str]:
-        """Apply the UTF-16 pass-through binary patch."""
+        """Apply the UTF-16 pass-through binary patch dynamically across any Winstep version."""
         info = self.analyze()
         if info['status'] == 'FILE_NOT_FOUND':
             return False, info['error']
+        if info['status'] == 'PATCHED':
+            return True, 'All 6 systray routines are already patched.'
+
+        sites = info.get('unpatched_sites', [])
+        if not sites:
+            return False, 'No unpatched systray tooltip routines detected.'
 
         if create_backup and not os.path.exists(self.bak_path):
             try:
@@ -195,29 +283,27 @@ class WinstepPatcher:
         except Exception as e:
             return False, f'Cannot open file for writing: {e}'
 
-        sections = info['sections']
-        wrapper_va = info.get('wrapper_va', 0x4cb0a4)
-
-        sites = [
-            (1, 0x8ef279, 0x8ef30f, self.build_routine_a),
-            (2, 0x8ef60a, 0x8ef6a0, self.build_routine_a),
-            (3, 0x8ef998, 0x8efa2d, self.build_routine_a),
-            (4, 0x8effa5, 0x8f0047, self.build_routine_b),
-            (5, 0x8f0460, 0x8f0501, self.build_routine_b),
-            (6, 0x8f087a, 0x8f091c, self.build_routine_b),
-        ]
-
+        wrapper_va = info['wrapper_va']
         patched_count = 0
-        for num, sva, jva, builder in sites:
-            raw_s = self.va_to_raw(sva, sections)
-            raw_j = self.va_to_raw(jva, sections)
-            avail = raw_j - raw_s
-            patch = builder(sva, jva, wrapper_va)
+
+        for site in sites:
+            sva = site['start_va']
+            sraw = site['start_raw']
+            jva = site['jump_va']
+            jraw = site['jump_raw']
+            avail = site['avail']
+            rtype = site['type']
+            h_proc = site['h_proc']
+            copy_iat = site['copy_iat']
+
+            builder = self.build_routine_a if rtype == 'A' else self.build_routine_b
+            patch = builder(sva, jva, wrapper_va, h_proc, copy_iat)
+
             if len(patch) > avail:
-                return False, f'Patch size ({len(patch)}) exceeds space ({avail}) at site {num}'
+                return False, f'Patch size ({len(patch)}) exceeds space ({avail}) at {hex(sva)}'
 
             full_block = patch + b'\x90' * (avail - len(patch))
-            data[raw_s:raw_j] = full_block
+            data[sraw:jraw] = full_block
             patched_count += 1
 
         try:
