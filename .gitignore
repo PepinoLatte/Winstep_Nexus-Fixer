@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.spec
+
+# Build outputs (dist can be kept or uploaded to GitHub Releases)
+build/
+*.bak
+
+# Environment
+.env
+.venv
+env/
+venv/
+ENV/
